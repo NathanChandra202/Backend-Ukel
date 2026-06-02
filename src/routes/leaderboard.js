@@ -25,7 +25,7 @@ router.get('/', cekToken, async (req, res) => {
        LIMIT 20`,
     );
 
-    res.json({ leaderboard: result.rows });
+    res.json({ data: result.rows });
   } catch (error) {
     console.error(error);
     res.status(500).json({ pesan: 'Terjadi kesalahan server' });

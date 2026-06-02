@@ -30,7 +30,7 @@ func ProfilSiswa(c *gin.Context) {
 	).Scan(&profil.ID, &profil.Nama, &profil.Email, &profil.Kelas, &profil.Jurusan, &profil.SaldoPoin, &profil.CreatedAt)
 
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"pesan": "Siswa tidak ditemukan"})
+		c.JSON(http.StatusNotFound, gin.H{"pesan": MsgProfilTidakAda})
 		return
 	}
 
@@ -69,7 +69,7 @@ func RiwayatPoin(c *gin.Context) {
 	)
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"pesan": "Terjadi kesalahan server"})
+		c.JSON(http.StatusInternalServerError, gin.H{"pesan": MsgRiwayatGagal})
 		return
 	}
 	defer rows.Close()
@@ -96,17 +96,17 @@ func UpdateProfil(c *gin.Context) {
 	siswaID := c.GetInt("siswaId")
 	var input UpdateProfilInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"pesan": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"pesan": MsgProfilFieldKosong})
 		return
 	}
 
 	_, err := DB.Exec("UPDATE siswa SET nama = $1, kelas = $2, jurusan = $3 WHERE id = $4", input.Nama, input.Kelas, input.Jurusan, siswaID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"pesan": "Gagal mengupdate profil"})
+		c.JSON(http.StatusInternalServerError, gin.H{"pesan": MsgProfilUpdateGagal})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"pesan": "Profil berhasil diupdate"})
+	c.JSON(http.StatusOK, gin.H{"pesan": MsgProfilUpdateOk})
 }
 
 // fungsi buat delete akun permanen
@@ -115,11 +115,11 @@ func DeleteAkun(c *gin.Context) {
 
 	_, err := DB.Exec("DELETE FROM siswa WHERE id = $1", siswaID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"pesan": "Gagal menghapus akun"})
+		c.JSON(http.StatusInternalServerError, gin.H{"pesan": MsgHapusAkunGagal})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"pesan": "Akun berhasil dihapus"})
+	c.JSON(http.StatusOK, gin.H{"pesan": MsgHapusAkunOk})
 }
 
 // fungsi buat export excel, pakenya token yang dipassing ke param biar gampang
@@ -139,7 +139,7 @@ func ExportRiwayatExcel(c *gin.Context) {
 		siswaID,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"pesan": "Gagal mengambil data"})
+		c.JSON(http.StatusInternalServerError, gin.H{"pesan": MsgRiwayatGagal})
 		return
 	}
 	defer rows.Close()
@@ -183,6 +183,6 @@ func ExportRiwayatExcel(c *gin.Context) {
 	c.Header("Content-Disposition", "attachment; filename=riwayat_poin.xlsx")
 	
 	if err := f.Write(c.Writer); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"pesan": "Gagal membuat file excel"})
+		c.JSON(http.StatusInternalServerError, gin.H{"pesan": MsgExcelGagal})
 	}
 }

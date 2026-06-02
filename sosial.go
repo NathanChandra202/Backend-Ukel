@@ -2,37 +2,68 @@ package main
 
 import (
 	"net/http"
+	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
-// fungsi buat upload foto aksi sosial 
 func UploadSosial(c *gin.Context) {
 	siswaID := c.GetInt("siswaId")
-	deskripsi := c.PostForm("deskripsi")
+	deskripsi := strings.TrimSpace(c.PostForm("deskripsi"))
+	if deskripsi == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"pesan": MsgSosialDeskripsiKosong})
+		return
+	}
 
 	file, err := c.FormFile("foto")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"pesan": "Foto harus dilampirin bro"})
+		c.JSON(http.StatusBadRequest, gin.H{"pesan": MsgSosialFotoWajib})
+		return
+	}
+
+	if err := os.MkdirAll("uploads", 0755); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"pesan": MsgSosialSimpanGagal})
 		return
 	}
 
 	filename := filepath.Base(file.Filename)
-	path := "uploads/" + filename
+	path := filepath.Join("uploads", filename)
 	if err := c.SaveUploadedFile(file, path); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"pesan": "Gagal nyimpen foto"})
+		c.JSON(http.StatusInternalServerError, gin.H{"pesan": MsgSosialSimpanGagal})
 		return
 	}
 
 	poinDiberikan := 5
-	tx, _ := DB.Begin()
-	tx.Exec("INSERT INTO aksi_sosial (siswa_id, deskripsi, foto_url, status, poin_diberikan) VALUES ($1, $2, $3, 'disetujui', $4)", siswaID, deskripsi, path, poinDiberikan)
-	tx.Exec("UPDATE siswa SET saldo_poin = saldo_poin + $1 WHERE id = $2", poinDiberikan, siswaID)
-	tx.Commit()
+	tx, err := DB.Begin()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"pesan": MsgServerError})
+		return
+	}
+	defer tx.Rollback()
 
-	c.JSON(http.StatusOK, gin.H{"pesan": "Aksi sosial diupload, poin lu nambah!"})
+	if _, err = tx.Exec(
+		"INSERT INTO aksi_sosial (siswa_id, deskripsi, foto_url, status, poin_diberikan) VALUES ($1, $2, $3, 'disetujui', $4)",
+		siswaID, deskripsi, path, poinDiberikan,
+	); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"pesan": MsgServerError})
+		return
+	}
+	if _, err = tx.Exec(
+		"UPDATE siswa SET saldo_poin = saldo_poin + $1 WHERE id = $2",
+		poinDiberikan, siswaID,
+	); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"pesan": MsgServerError})
+		return
+	}
+	if err = tx.Commit(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"pesan": MsgServerError})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"pesan": MsgSosialUploadOk})
 }
 
 type AksiSosial struct {
@@ -44,18 +75,20 @@ type AksiSosial struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// ngambil riwayat aksi sosial yang udah diupload
 func GetRiwayatSosial(c *gin.Context) {
 	siswaID := c.GetInt("siswaId")
-	rows, err := DB.Query("SELECT id, deskripsi, foto_url, status, poin_diberikan, created_at FROM aksi_sosial WHERE siswa_id = $1 ORDER BY created_at DESC", siswaID)
-	
+	rows, err := DB.Query(
+		"SELECT id, deskripsi, foto_url, status, poin_diberikan, created_at FROM aksi_sosial WHERE siswa_id = $1 ORDER BY created_at DESC",
+		siswaID,
+	)
+
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"pesan": "Gagal narik riwayat"})
+		c.JSON(http.StatusInternalServerError, gin.H{"pesan": MsgSosialRiwayatGagal})
 		return
 	}
 	defer rows.Close()
 
-	var data []AksiSosial = []AksiSosial{}
+	data := []AksiSosial{}
 	for rows.Next() {
 		var a AksiSosial
 		if err := rows.Scan(&a.ID, &a.Deskripsi, &a.FotoURL, &a.Status, &a.Poin, &a.CreatedAt); err == nil {

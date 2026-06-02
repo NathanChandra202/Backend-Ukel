@@ -26,7 +26,7 @@ router.get('/', cekToken, async (req, res) => {
        ORDER BY j.created_at DESC`
     );
 
-    res.json({ jasa: result.rows });
+    res.json({ data: result.rows });
   } catch (error) {
     console.error(error);
     res.status(500).json({ pesan: 'Terjadi kesalahan server' });
@@ -47,7 +47,7 @@ router.get('/milik-saya', cekToken, async (req, res) => {
       [req.siswaId]
     );
 
-    res.json({ jasa: result.rows });
+    res.json({ data: result.rows });
   } catch (error) {
     console.error(error);
     res.status(500).json({ pesan: 'Terjadi kesalahan server' });
@@ -73,7 +73,7 @@ router.get('/:id', cekToken, async (req, res) => {
       return res.status(404).json({ pesan: 'Jasa tidak ditemukan' });
     }
 
-    res.json({ jasa: result.rows[0] });
+    res.json({ data: result.rows[0] });
   } catch (error) {
     console.error(error);
     res.status(500).json({ pesan: 'Terjadi kesalahan server' });

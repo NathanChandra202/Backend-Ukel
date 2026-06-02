@@ -10,7 +10,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// fungsi buat cek token jwt pas ada request masuk, kalau nggak valid tolak
 func CekToken(c *gin.Context) {
 	authHeader := c.GetHeader("Authorization")
 	var tokenString string
@@ -18,7 +17,7 @@ func CekToken(c *gin.Context) {
 	if authHeader != "" {
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {
-			c.JSON(http.StatusUnauthorized, gin.H{"pesan": "Format token salah"})
+			c.JSON(http.StatusUnauthorized, gin.H{"pesan": MsgTokenFormatSalah})
 			c.Abort()
 			return
 		}
@@ -28,35 +27,43 @@ func CekToken(c *gin.Context) {
 	}
 
 	if tokenString == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"pesan": "Token tidak ada, harap login"})
+		c.JSON(http.StatusUnauthorized, gin.H{"pesan": MsgTokenTidakAda})
 		c.Abort()
 		return
 	}
 
 	secretKey := []byte(os.Getenv("JWT_SECRET"))
+	if len(secretKey) == 0 {
+		secretKey = []byte("rahasiabanget")
+	}
 
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method")
+			return nil, fmt.Errorf("metode token tidak didukung")
 		}
 		return secretKey, nil
 	})
 
 	if err != nil || !token.Valid {
-		c.JSON(http.StatusUnauthorized, gin.H{"pesan": "Token tidak valid atau sudah expired"})
+		c.JSON(http.StatusUnauthorized, gin.H{"pesan": MsgTokenTidakValid})
 		c.Abort()
 		return
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"pesan": "Gagal membaca isi token"})
+		c.JSON(http.StatusUnauthorized, gin.H{"pesan": MsgTokenBacaGagal})
 		c.Abort()
 		return
 	}
 
-	siswaID := int(claims["id"].(float64))
-	c.Set("siswaId", siswaID)
+	idClaim, ok := claims["id"].(float64)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"pesan": MsgTokenBacaGagal})
+		c.Abort()
+		return
+	}
 
+	c.Set("siswaId", int(idClaim))
 	c.Next()
 }

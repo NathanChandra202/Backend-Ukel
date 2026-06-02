@@ -67,7 +67,7 @@ router.get('/riwayat', cekToken, async (req, res) => {
       [req.siswaId]
     );
 
-    res.json({ aksi: result.rows });
+    res.json({ data: result.rows });
   } catch (error) {
     console.error(error);
     res.status(500).json({ pesan: 'Terjadi kesalahan server' });

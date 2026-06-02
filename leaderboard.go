@@ -16,7 +16,7 @@ type Peringkat struct {
 func GetLeaderboard(c *gin.Context) {
 	rows, err := DB.Query("SELECT id, nama, kelas, saldo_poin FROM siswa ORDER BY saldo_poin DESC LIMIT 10")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"pesan": "Gagal narik data leaderboard"})
+		c.JSON(http.StatusInternalServerError, gin.H{"pesan": MsgLeaderboardGagal})
 		return
 	}
 	defer rows.Close()

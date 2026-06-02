@@ -3,31 +3,30 @@ package main
 import (
 	"database/sql"
 	"log"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
-	_ "github.com/lib/pq"
 )
 
 var DB *sql.DB
 
 // fungsi utama buat jalanin servernya
 func main() {
-	var err error
-	
-	// koneksi ke database postgres (sesuaiin stringnya ya sama setup lu)
-	connStr := "user=postgres password=postgres dbname=kontribid sslmode=disable"
-	DB, err = sql.Open("postgres", connStr)
-	if err != nil {
-		log.Fatal("Gagal konek database: ", err)
+	if err := koneksiDatabase(); err != nil {
+		log.Fatal(
+			"Gagal konek database:\n  ", err,
+			"\n\nPerbaiki backend/.env lalu pastikan PostgreSQL jalan dan database kontribid + schema.sql sudah dibuat.",
+		)
 	}
 
 	r := gin.Default()
 
-	// setting CORS biar flutter web atau hp bisa nembak api
+	// CORS untuk Flutter Web (Chrome) dan mobile
 	r.Use(func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept")
+		c.Writer.Header().Set("Access-Control-Max-Age", "86400")
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
 			return
@@ -36,6 +35,21 @@ func main() {
 	})
 
 	api := r.Group("/api")
+
+	api.GET("/health", func(c *gin.Context) {
+		if err := DB.Ping(); err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{
+				"status": "error",
+				"pesan":  "Database tidak terhubung. Periksa PostgreSQL dan file backend/.env.",
+				"detail": err.Error(),
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"status": "ok",
+			"pesan":  "Backend Kontrib.ID aktif",
+		})
+	})
 
 	// rute autentikasi
 	auth := api.Group("/auth")
@@ -66,6 +80,7 @@ func main() {
 	// rute leaderboard
 	api.GET("/leaderboard", CekToken, GetLeaderboard)
 
-	log.Println("Server jalan di port 3000 nih bro...")
+	log.Println("Server aktif → http://localhost:3000")
+	log.Println("Health check → http://localhost:3000/api/health")
 	r.Run(":3000")
 }
